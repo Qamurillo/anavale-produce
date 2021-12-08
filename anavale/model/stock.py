@@ -71,6 +71,7 @@ class Picking(models.Model):
 
     def button_validate(self):
         """ Si es necesario crea lotes """
+        import pdb; pdb.set_trace()
         picking_type = self.picking_type_id
         precision_digits = self.env['decimal.precision'].precision_get('Product Unit of Measure')
         no_quantities_done = all(float_is_zero(move_line.qty_done, precision_digits=precision_digits) for move_line in
@@ -257,6 +258,7 @@ class Picking(models.Model):
             Load stock.move.lines from SO
             Without reserved
         """
+        import pdb; pdb.set_trace()
         move_line_vals_list = []
         for line in self.move_line_ids:
             # Validate qty reserved or done
@@ -268,6 +270,7 @@ class Picking(models.Model):
                                 'Please you fix it')
 
         # Force Unlink operations ()
+        self.button_force_do_unreserve()
         self.move_line_ids.with_context(is_force=True).unlink()
         for move in self.move_lines:
             # Create Lines
@@ -302,25 +305,15 @@ class Picking(models.Model):
         if len(list_ids_to_recreate) == 0:
             raise UserError('Nothing line has products to validate, please check it')
 
-        # Force Unreserve
-        self.button_force_do_unreserve()
-        # Order fix
-        order_id_ref.action_unlock()
-        order_id_ref.action_cancel()
-        order_id_ref.action_draft()
-        order_id_ref.order_line.unlink()
-        # CleanDelivery
-        self.set_to_draft()
-        # Secure unreserve qty
-        self.button_force_do_unreserve()
-        # Force Unlink operations ()
-        self.move_lines.unlink()
-        self.move_line_ids.with_context(is_force=True).unlink()
-        _logger.info("delete order")
-        # Set new orderlines
-        order_id_ref.env['stock.picking'].create_sale_order_lines(order_id_ref, list_ids_to_recreate)
-        order_id_ref.with_context(is_force=True).action_confirm()
-        self.button_load_move_line_ids()
+        _logger.info("*"*100)
+        _logger.info(list_ids_to_recreate)
+        import pdb; pdb.set_trace()
+        for line in order_id_ref.order_line:
+            for orderline in list_ids_to_recreate:
+                if line.lot_id.id == orderline.get('lot_id'):
+                    line.update(orderline)
+                else:
+                    line.update(orderline)
         self.update_empty_delivery_lines(list_ids_to_recreate)
 
     def get_custom_product_price(self, sale_id, product_id):
